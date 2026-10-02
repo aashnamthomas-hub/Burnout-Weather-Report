@@ -17,7 +17,7 @@ type Props = {
   achievements: Achievement[];
 };
 
-const textButton = "text-base text-ink underline underline-offset-4 decoration-from-font hover:no-underline";
+const textButton = "inline-flex min-h-11 items-center px-1 text-base text-ink underline underline-offset-4 decoration-from-font hover:no-underline";
 const primaryButton =
   "border border-isobar bg-low-sun px-6 py-3 text-lg text-isobar transition-opacity hover:opacity-90";
 const secondaryButton =

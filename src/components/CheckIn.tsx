@@ -30,7 +30,7 @@ const EPOCH = new Date(0);
 const primaryButton =
   "border border-isobar bg-low-sun px-6 py-3 text-lg text-isobar transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
 const textButton =
-  "text-base text-sky-ink underline underline-offset-4 decoration-from-font hover:no-underline";
+  "inline-flex min-h-11 items-center text-base text-sky-ink underline underline-offset-4 decoration-from-font hover:no-underline";
 
 export function CheckIn() {
   const { setSky } = useSky();
@@ -174,7 +174,7 @@ export function CheckIn() {
 
   return (
     <Frame>
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
       <div className="text-sky-ink">
         <div className="max-w-2xl">
           <p className="font-mono text-sm">{progressLabel}</p>
@@ -198,6 +198,7 @@ export function CheckIn() {
             key="final"
             initial={answers.avoidPeople ?? false}
             onBack={path.length > 1 ? back : undefined}
+            onRestart={restart}
             onSubmit={(avoidPeople) => record({ avoidPeople }, true)}
           />
         ) : (
@@ -208,17 +209,16 @@ export function CheckIn() {
             history={history}
             now={now}
             onBack={path.length > 1 ? back : undefined}
+            onRestart={restart}
             onChange={(updates, advance) => record(updates, advance)}
             onNext={() => goTo(answers, now)}
           />
         )}
 
-        <button type="button" onClick={restart} className={`${textButton} mt-10 block`}>
-          Start over
-        </button>
       </div>
 
-      <div className="lg:sticky lg:top-6 lg:self-start">
+      {/* On a phone the readout sticks to the bottom of the screen so it is always in view. */}
+      <div className="max-lg:sticky max-lg:bottom-0 max-lg:z-20 lg:sticky lg:top-6 lg:self-start">
         <div className="border border-hairline">
           <LiveReadout scores={result.scores} change={change} />
         </div>
@@ -230,7 +230,7 @@ export function CheckIn() {
 
 function Frame({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12 sm:px-8 lg:py-20">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 pt-4 sm:px-8 sm:py-12 lg:py-20 max-lg:pb-0">
       {children}
     </div>
   );
@@ -242,11 +242,12 @@ type QuestionStepProps = {
   history: SavedCheckIn[];
   now: Date;
   onBack?: () => void;
+  onRestart: () => void;
   onChange: (updates: Partial<Answers>, advance: boolean) => void;
   onNext: () => void;
 };
 
-function QuestionStep({ id, answers, history, now, onBack, onChange, onNext }: QuestionStepProps) {
+function QuestionStep({ id, answers, history, now, onBack, onRestart, onChange, onNext }: QuestionStepProps) {
   const question = QUESTION_BY_ID[id];
   const ctx = { answers, history, now };
   const fields = visibleFields(question, ctx);
@@ -255,19 +256,19 @@ function QuestionStep({ id, answers, history, now, onBack, onChange, onNext }: Q
   const single = question.kind === "choice";
 
   return (
-    <section aria-labelledby={`${id}-title`} className="mt-8 max-w-2xl">
-      <h2 id={`${id}-title`} className="text-3xl leading-tight font-normal text-balance sm:text-4xl">
+    <section aria-labelledby={`${id}-title`} className="mt-5 max-w-2xl sm:mt-8">
+      <h2 id={`${id}-title`} className="text-2xl leading-tight font-normal text-balance sm:text-3xl lg:text-4xl">
         {question.text(ctx)}
       </h2>
-      {help && <p className="mt-3 text-lg text-pretty">{help}</p>}
+      {help && <p className="mt-2 text-base text-pretty sm:mt-3 sm:text-lg">{help}</p>}
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-4 space-y-4 sm:mt-6 sm:space-y-6">
         {fields.map((field, index) => {
           const labelId = single ? `${id}-title` : `${id}-${field.key}-label`;
           return (
             <div key={field.key}>
               {!single && (
-                <p id={labelId} className="mb-2 text-base font-medium">
+                <p id={labelId} className="mb-1.5 text-base font-medium sm:mb-2">
                   {field.label}
                 </p>
               )}
@@ -283,12 +284,15 @@ function QuestionStep({ id, answers, history, now, onBack, onChange, onNext }: Q
         })}
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 sm:mt-8 sm:gap-y-3">
         {onBack && (
           <button type="button" onClick={onBack} className={textButton}>
             Back
           </button>
         )}
+        <button type="button" onClick={onRestart} className={textButton}>
+          Start over
+        </button>
         {!single && (
           <button type="button" onClick={onNext} disabled={!complete} className={primaryButton}>
             Next
@@ -311,10 +315,12 @@ function QuestionStep({ id, answers, history, now, onBack, onChange, onNext }: Q
 function FinalStep({
   initial,
   onBack,
+  onRestart,
   onSubmit,
 }: {
   initial: boolean;
   onBack?: () => void;
+  onRestart: () => void;
   onSubmit: (avoidPeople: boolean) => void;
 }) {
   const question = QUESTION_BY_ID.final;
@@ -348,6 +354,9 @@ function FinalStep({
             Back
           </button>
         )}
+        <button type="button" onClick={onRestart} className={textButton}>
+          Start over
+        </button>
         <button type="button" onClick={() => onSubmit(avoidPeople)} className={primaryButton}>
           Get my forecast
         </button>

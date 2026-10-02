@@ -101,14 +101,14 @@ export function DayStrip({ blocks, crash }: Props) {
         </p>
       </div>
 
-      {/* On a phone the strip scrolls inside its own box, never the page. */}
-      <div className="mt-4 overflow-x-auto border-y border-hairline" tabIndex={0} role="group" aria-label="Day strip, scrolls sideways on small screens">
-        <ol className="grid min-w-[44rem] grid-cols-4 divide-x divide-hairline lg:min-w-0">
+      {/* Two by two on a phone, four across on a desktop, so nothing scrolls. */}
+      <div className="mt-4 border-y border-hairline">
+        <ol className="grid grid-cols-2 lg:grid-cols-4">
           {blocks.map((block) => (
             <li
               key={block.id}
               aria-current={block.status === "now" ? "time" : undefined}
-              className={`flex flex-col gap-2 p-4 ${block.status === "past" ? "text-ink-soft" : "text-ink"}`}
+              className={`flex flex-col gap-2 border-hairline p-3 sm:p-4 [&:nth-child(even)]:border-l [&:nth-child(n+3)]:border-t lg:[&:nth-child(n+2)]:border-l lg:[&:nth-child(n+3)]:border-t-0 ${block.status === "past" ? "text-ink-soft" : "text-ink"}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
