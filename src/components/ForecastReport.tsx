@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ScoreResult } from "@/lib/forecast";
 import type { Picked } from "@/lib/recommendations";
 import { signed, SCORE_NAMES } from "@/lib/readout";
@@ -191,6 +192,9 @@ export function ForecastReport({
             <button type="button" onClick={onRestart} className={primaryButton}>
               Start a new check-in
             </button>
+            <Link href="/week" className={textButton}>
+              See your week
+            </Link>
           </div>
         </div>
       </div>

@@ -68,6 +68,8 @@ export type Trend = "Rising" | "Steady" | "Falling";
 
 /** A saved check-in. `date` is an ISO timestamp. */
 export type CheckIn = {
+  /** True for the demo week from "Load sample week"; dropped as soon as a real check-in is saved. */
+  sample?: boolean;
   date: string;
   answers: Answers;
   scores: Scores;

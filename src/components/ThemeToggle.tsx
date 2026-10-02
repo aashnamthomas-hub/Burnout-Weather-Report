@@ -24,7 +24,7 @@ export function ThemeToggle() {
           </g>
         )}
       </svg>
-      {next === "night" ? "Night sky" : "Day sky"}
+      <span className="max-sm:sr-only whitespace-nowrap">{next === "night" ? "Night sky" : "Day sky"}</span>
     </button>
   );
 }

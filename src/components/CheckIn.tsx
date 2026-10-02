@@ -100,7 +100,8 @@ export function CheckIn() {
     const clock = new Date();
     // Past check-ins are read when the check-in starts, never during server rendering.
     const saved = readStorage("checkIns");
-    const past = Array.isArray(saved) ? saved : [];
+    // The demo week is never treated as real history.
+    const past = Array.isArray(saved) ? saved.filter((c) => !c?.sample) : [];
     setHistory(past);
     setNow(clock);
     setStarted(true);

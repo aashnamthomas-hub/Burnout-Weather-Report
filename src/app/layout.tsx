@@ -32,7 +32,7 @@ const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: TITLE,
+  title: { default: TITLE, template: `%s | ${TITLE}` },
   description: DESCRIPTION,
   applicationName: TITLE,
   openGraph: {
