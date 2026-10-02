@@ -40,7 +40,7 @@ export function PressureGauge({ pressure }: { pressure: Report["pressure"] }) {
         aria-label={`Burnout pressure ${value} out of 100, ${zone.toLowerCase()}, ${trend.toLowerCase()}`}
       >
         <path d={arc(0, 100, R)} fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="8" />
-        <path d={arc(0, Math.max(value, 0.5), R)} fill="none" stroke="var(--squall)" strokeWidth="8" />
+        <path d={arc(0, Math.max(value, 0.5), R)} fill="none" stroke="var(--line-pressure)" strokeWidth="8" />
         {Array.from({ length: 11 }, (_, i) => i * 10).map((tick) => {
           const inner = polar(tick, R + 8);
           const outer = polar(tick, R + (tick % 50 === 0 ? 16 : 12));

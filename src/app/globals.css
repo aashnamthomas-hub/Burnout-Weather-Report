@@ -15,6 +15,10 @@
   --ink-soft: #4a5470;
   --hairline: rgb(23 32 58 / 0.18);
   --focus-ring: var(--cold-front);
+  /* Text and chart lines that need more contrast than the palette colour gives them. */
+  --warn-text: #a8322d;
+  --line-focus: var(--cold-front);
+  --line-pressure: var(--squall);
 
   /* Day sky stops: clear, grey (low mood) and storm (high pressure) */
   --sky-clear-top: #6f9fd8;
@@ -43,6 +47,9 @@
     --ink-soft: #a9b2c6;
     --hairline: rgb(233 237 242 / 0.16);
     --focus-ring: var(--low-sun);
+    --warn-text: #f08a84;
+    --line-focus: #7fa6e6;
+    --line-pressure: #a99fd2;
     --sky-clear-top: #070c1c;
     --sky-clear-bottom: #1c2846;
     --sky-grey-top: #141a2b;
@@ -72,6 +79,9 @@
   --ink-soft: #a9b2c6;
   --hairline: rgb(233 237 242 / 0.16);
   --focus-ring: var(--low-sun);
+  --warn-text: #f08a84;
+  --line-focus: #7fa6e6;
+  --line-pressure: #a99fd2;
   --sky-clear-top: #070c1c;
   --sky-clear-bottom: #1c2846;
   --sky-grey-top: #141a2b;
@@ -118,6 +128,7 @@
   --color-warm-front: var(--warm-front);
   --color-cold-front: var(--cold-front);
   --color-squall: var(--squall);
+  --color-warn-text: var(--warn-text);
   --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
@@ -140,6 +151,22 @@ body {
   outline: 2px solid var(--focus-ring);
   outline-offset: 3px;
   border-radius: 2px;
+}
+
+/* Visible on keyboard focus only; lets people jump past the header. */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  z-index: 50;
+  transform: translateY(-120%);
+  padding: 0.75rem 1rem;
+  background: var(--ground);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+}
+.skip-link:focus {
+  transform: translateY(0.5rem);
 }
 
 /* ---------- Sky ---------- */
@@ -236,6 +263,12 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
   .star-twinkle,
   .sky-rain {
     animation: none;

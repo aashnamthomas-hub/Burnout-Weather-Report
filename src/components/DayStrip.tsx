@@ -61,12 +61,12 @@ function Sparkline({ block, crashAlarm }: { block: DayBlock; crashAlarm: boolean
           x2={dipX(block.dipHour)}
           y1={PAD}
           y2={H - PAD}
-          stroke={crashAlarm ? "var(--warm-front)" : "currentColor"}
+          stroke={crashAlarm ? "var(--warn-text)" : "currentColor"}
           strokeWidth="1.5"
           strokeDasharray="2 3"
         />
       )}
-      <polyline points={pointsFor(block.focus)} fill="none" stroke="var(--cold-front)" strokeWidth="1.5" strokeDasharray="4 3" strokeLinejoin="round" />
+      <polyline points={pointsFor(block.focus)} fill="none" stroke="var(--line-focus)" strokeWidth="1.5" strokeDasharray="4 3" strokeLinejoin="round" />
       <polyline points={pointsFor(block.energy)} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
     </svg>
   );
@@ -95,7 +95,7 @@ export function DayStrip({ blocks, crash }: Props) {
             Energy
           </span>
           <span className="flex items-center gap-1.5">
-            <svg width="20" height="6" aria-hidden="true"><line x1="0" x2="20" y1="3" y2="3" stroke="var(--cold-front)" strokeWidth="1.5" strokeDasharray="4 3" /></svg>
+            <svg width="20" height="6" aria-hidden="true"><line x1="0" x2="20" y1="3" y2="3" stroke="var(--line-focus)" strokeWidth="1.5" strokeDasharray="4 3" /></svg>
             Focus
           </span>
         </p>
@@ -137,7 +137,7 @@ export function DayStrip({ blocks, crash }: Props) {
                   </span>
                 )}
                 {block.dipHour !== undefined && block.status !== "past" && (
-                  <span className={block.status === "now" ? "ml-3" : ""} style={alarm ? { color: "var(--warm-front)" } : undefined}>
+                  <span className={block.status === "now" ? "ml-3" : ""} style={alarm ? { color: "var(--warn-text)" } : undefined}>
                     dip around {clock12(block.dipHour)}
                   </span>
                 )}

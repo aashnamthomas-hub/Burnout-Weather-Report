@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Newsreader } from "next/font/google";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -21,10 +21,38 @@ const plexMono = IBM_Plex_Mono({
   fallback: ["ui-monospace", "Consolas", "monospace"],
 });
 
+const TITLE = "Burnout Weather Report";
+const DESCRIPTION =
+  "Check your own weather before you plan the day. A few quick questions, then a personal forecast for your energy, focus and mood, with plain advice. Free, no sign-up, and your answers never leave your browser.";
+
+// Vercel provides the production domain at build time; locally it falls back to localhost.
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "Burnout Weather Report",
-  description:
-    "Check your internal weather before you plan the day. A few quick questions, a personal forecast for energy, focus and mood.",
+  metadataBase: new URL(siteUrl),
+  title: TITLE,
+  description: DESCRIPTION,
+  applicationName: TITLE,
+  openGraph: {
+    type: "website",
+    siteName: TITLE,
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#e9edf2" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1428" },
+  ],
 };
 
 // Applies a saved day/night choice before first paint so the page never flashes
@@ -46,9 +74,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-svh">
         <SkyProvider>
+          <a href="#main" className="skip-link">
+            Skip to the check-in
+          </a>
           <div className="relative z-10 flex min-h-svh flex-col">
             <SiteHeader />
-            <main className="flex flex-1 flex-col">{children}</main>
+            <main id="main" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+              {children}
+            </main>
             <SiteFooter />
           </div>
         </SkyProvider>

@@ -14,6 +14,7 @@ import {
 import { describeChange } from "@/lib/readout";
 import { computeStats, earnedAchievements } from "@/lib/achievements";
 import { pickRecommendations } from "@/lib/recommendations";
+import { needsSupportNote } from "@/lib/safety";
 import { buildReport, isGoodDay, modeFor } from "@/lib/report";
 import { readStorage, saveCheckIn } from "@/lib/storage";
 import { daySeed, pickSuggestions } from "@/lib/suggestions";
@@ -159,6 +160,7 @@ export function CheckIn() {
         streak={stats.streak}
         achievements={achievements}
         racing={answers.head === "racing"}
+        supportNote={needsSupportNote(history, result.scores, now)}
         onBack={back}
         onRestart={restart}
       />
@@ -174,6 +176,7 @@ export function CheckIn() {
 
   return (
     <Frame>
+    <h1 className="sr-only">Burnout Weather Report: check-in</h1>
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
       <div className="text-sky-ink">
         <div className="max-w-2xl">

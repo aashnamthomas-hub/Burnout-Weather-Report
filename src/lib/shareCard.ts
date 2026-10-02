@@ -239,7 +239,7 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: CardData) {
 
   if (d.dipHour !== null && d.crash >= REPORT.crashShownFrom) {
     const x = left + (width * (d.dipHour - 6)) / 16;
-    ctx.strokeStyle = d.crash >= REPORT.crashAlarmFrom ? WARM_FRONT : p.soft;
+    ctx.strokeStyle = d.crash >= REPORT.crashAlarmFrom ? (d.night ? "#f08a84" : WARM_FRONT) : p.soft;
     ctx.setLineDash([6, 8]);
     ctx.beginPath();
     ctx.moveTo(x, curveTop - 6);
@@ -257,7 +257,7 @@ export function drawShareCard(ctx: CanvasRenderingContext2D, d: CardData) {
     ctx.stroke();
     ctx.setLineDash([]);
   };
-  line(d.focusCurve, COLD_FRONT, 4, [12, 8]);
+  line(d.focusCurve, d.night ? "#7fa6e6" : COLD_FRONT, 4, [12, 8]);
   line(d.energyCurve, p.ink, 5, []);
 
   ctx.fillStyle = p.soft;

@@ -42,12 +42,16 @@ export function LiveReadout({ scores, change }: Props) {
               </dt>
               <dd className="flex items-baseline gap-1.5 font-mono tabular-nums">
                 <span className="text-lg sm:text-xl lg:text-2xl">{scores[key]}</span>
-                <span
-                  className="text-xs text-ink-soft"
-                  aria-label={delta === 0 ? "no change" : `${delta > 0 ? "up" : "down"} ${Math.abs(delta)}`}
-                >
-                  {delta === 0 ? "" : `${delta > 0 ? "▲" : "▼"} ${signed(delta)}`}
-                </span>
+                {delta !== 0 && (
+                  <>
+                    <span aria-hidden="true" className="text-xs text-ink-soft">
+                      {delta > 0 ? "▲" : "▼"} {signed(delta)}
+                    </span>
+                    <span className="sr-only">
+                      {delta > 0 ? "up" : "down"} {Math.abs(delta)}
+                    </span>
+                  </>
+                )}
               </dd>
             </div>
           );

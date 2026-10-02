@@ -4,6 +4,7 @@ import { signed, SCORE_NAMES } from "@/lib/readout";
 import type { Report } from "@/lib/report";
 import type { ScoreKey } from "@/lib/types";
 import type { Achievement } from "@/lib/achievements";
+import { SUPPORT_NOTE } from "@/lib/safety";
 import type { Feeling, Suggestion } from "@/lib/suggestions";
 import { DayStrip } from "./DayStrip";
 import { MoodSuggestions } from "./MoodSuggestions";
@@ -19,6 +20,8 @@ type Props = {
   streak: number;
   achievements: Achievement[];
   racing: boolean;
+  /** Show the gentle note after several very low days in a row. */
+  supportNote: boolean;
   onBack: () => void;
   onRestart: () => void;
 };
@@ -46,6 +49,7 @@ export function ForecastReport({
   streak,
   achievements,
   racing,
+  supportNote,
   onBack,
   onRestart,
 }: Props) {
@@ -60,6 +64,7 @@ export function ForecastReport({
 
   return (
     <>
+      <h1 className="sr-only">Burnout Weather Report: your forecast</h1>
       <section
         aria-labelledby="forecast-headline"
         className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-end px-4 pt-20 pb-10 text-sky-ink sm:px-8 lg:pt-32"
@@ -85,13 +90,21 @@ export function ForecastReport({
       {/* The horizon: everything below sits on solid ground. */}
       <div className="border-t border-ink bg-ground text-ink">
         <div className="mx-auto w-full max-w-6xl space-y-14 px-4 py-12 sm:px-8">
+          {supportNote && (
+            <aside aria-labelledby="support-title" className="max-w-3xl border-l-2 border-ink py-1 pl-4">
+              <h3 id="support-title" className="text-xl font-medium">{SUPPORT_NOTE.title}</h3>
+              <p className="mt-1 text-lg text-pretty">{SUPPORT_NOTE.body}</p>
+              <p className="mt-2 text-base text-ink-soft text-pretty">{SUPPORT_NOTE.urgent}</p>
+            </aside>
+          )}
+
           {report.stormWarning && (
             <p
               role="note"
               className="max-w-3xl border-l-2 py-1 pl-4 text-xl text-pretty"
               style={{ borderColor: "var(--warm-front)" }}
             >
-              <span className="font-mono text-sm" style={{ color: "var(--warm-front)" }}>
+              <span className="font-mono text-sm" style={{ color: "var(--warn-text)" }}>
                 Storm warning
               </span>
               <br />
