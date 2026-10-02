@@ -1,0 +1,247 @@
+@import "tailwindcss";
+
+/* ---------- Palette (see DESIGN.md) ---------- */
+:root {
+  --isobar: #17203a;
+  --haze: #e9edf2;
+  --low-sun: #f2a541;
+  --warm-front: #c2413b;
+  --cold-front: #2f5da8;
+  --squall: #5a4e7c;
+
+  /* Day: semantic tokens */
+  --ground: var(--haze);
+  --ink: var(--isobar);
+  --ink-soft: #4a5470;
+  --hairline: rgb(23 32 58 / 0.18);
+  --focus-ring: var(--cold-front);
+
+  /* Day sky stops: clear, grey (low mood) and storm (high pressure) */
+  --sky-clear-top: #6f9fd8;
+  --sky-clear-bottom: #d6e3f0;
+  --sky-grey-top: #9aa5b6;
+  --sky-grey-bottom: #d3d8e0;
+  --sky-storm-top: #4b4468;
+  --sky-storm-bottom: #8e8aa6;
+  --cloud: #ffffff;
+  --cloud-grey: #aeb5c2;
+  --storm-cloud: #3b3454;
+  --fog-color: #e9edf2;
+  --wind-color: rgb(255 255 255 / 0.9);
+  --star-color: #ffffff;
+  --sky-ink-calm: var(--isobar);
+  --sky-ink-storm: var(--haze);
+
+  color-scheme: light;
+}
+
+/* Night tokens: used when the OS prefers dark (unless overridden) or when toggled. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="day"]) {
+    --ground: #0e1428;
+    --ink: var(--haze);
+    --ink-soft: #a9b2c6;
+    --hairline: rgb(233 237 242 / 0.16);
+    --focus-ring: var(--low-sun);
+    --sky-clear-top: #070c1c;
+    --sky-clear-bottom: #1c2846;
+    --sky-grey-top: #141a2b;
+    --sky-grey-bottom: #2a3247;
+    --sky-storm-top: #120e22;
+    --sky-storm-bottom: #2a2440;
+    --cloud: #2c3756;
+    --cloud-grey: #262c3e;
+    --storm-cloud: #0b0916;
+    --fog-color: #39435e;
+    --wind-color: rgb(233 237 242 / 0.5);
+    --sky-ink-calm: var(--haze);
+    --sky-ink-storm: var(--haze);
+    color-scheme: dark;
+  }
+  :root:not([data-theme="day"]) .day-only {
+    display: none;
+  }
+  :root:not([data-theme="day"]) .night-only {
+    display: inline;
+  }
+}
+
+:root[data-theme="night"] {
+  --ground: #0e1428;
+  --ink: var(--haze);
+  --ink-soft: #a9b2c6;
+  --hairline: rgb(233 237 242 / 0.16);
+  --focus-ring: var(--low-sun);
+  --sky-clear-top: #070c1c;
+  --sky-clear-bottom: #1c2846;
+  --sky-grey-top: #141a2b;
+  --sky-grey-bottom: #2a3247;
+  --sky-storm-top: #120e22;
+  --sky-storm-bottom: #2a2440;
+  --cloud: #2c3756;
+  --cloud-grey: #262c3e;
+  --storm-cloud: #0b0916;
+  --fog-color: #39435e;
+  --wind-color: rgb(233 237 242 / 0.5);
+  --sky-ink-calm: var(--haze);
+  --sky-ink-storm: var(--haze);
+  color-scheme: dark;
+}
+
+.night-only {
+  display: none;
+}
+:root[data-theme="night"] .day-only {
+  display: none;
+}
+:root[data-theme="night"] .night-only {
+  display: inline;
+}
+
+/* Text that sits directly on the sky flips to light ink when a storm darkens it. */
+:root {
+  --sky-ink: var(--sky-ink-calm);
+}
+:root[data-sky-dark] {
+  --sky-ink: var(--sky-ink-storm);
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-hairline: var(--hairline);
+  --color-sky-ink: var(--sky-ink);
+  --color-isobar: var(--isobar);
+  --color-haze: var(--haze);
+  --color-low-sun: var(--low-sun);
+  --color-warm-front: var(--warm-front);
+  --color-cold-front: var(--cold-front);
+  --color-squall: var(--squall);
+  --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+/* ---------- Base ---------- */
+html {
+  background: var(--ground);
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ---------- Sky ---------- */
+.sky {
+  --sky-top: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--sky-clear-top), var(--sky-grey-top) calc(var(--gloom) * 100%)),
+    var(--sky-storm-top) calc(var(--storm) * 100%)
+  );
+  --sky-bottom: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--sky-clear-bottom), var(--sky-grey-bottom) calc(var(--gloom) * 100%)),
+    var(--sky-storm-bottom) calc(var(--storm) * 100%)
+  );
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
+}
+
+.sky-scene {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.sky-scene[data-ready] {
+  opacity: 1;
+}
+
+.star {
+  fill: var(--star-color);
+}
+.star-twinkle {
+  animation: twinkle 3.6s ease-in-out infinite alternate;
+}
+@keyframes twinkle {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.25;
+  }
+}
+
+.wind-streak {
+  fill: none;
+  stroke: var(--wind-color);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.sky-rain {
+  position: absolute;
+  inset: 0;
+  opacity: calc(var(--rain) * 0.85);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='160'%3E%3Cg stroke='%23ffffff' stroke-opacity='.5' stroke-width='1.2' stroke-linecap='round'%3E%3Cline x1='12' y1='8' x2='8' y2='26'/%3E%3Cline x1='58' y1='30' x2='54' y2='48'/%3E%3Cline x1='96' y1='4' x2='92' y2='22'/%3E%3Cline x1='30' y1='70' x2='26' y2='88'/%3E%3Cline x1='80' y1='84' x2='76' y2='102'/%3E%3Cline x1='112' y1='60' x2='108' y2='78'/%3E%3Cline x1='6' y1='118' x2='2' y2='136'/%3E%3Cline x1='50' y1='124' x2='46' y2='142'/%3E%3Cline x1='90' y1='136' x2='86' y2='154'/%3E%3C/g%3E%3C/svg%3E");
+  animation: rain-fall 0.9s linear infinite;
+}
+@keyframes rain-fall {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -120px 480px;
+  }
+}
+
+.sky-fog-band {
+  position: absolute;
+  left: -30%;
+  width: 160%;
+  height: 42%;
+  transform: translateY(-50%);
+  opacity: var(--fog);
+  background: radial-gradient(ellipse at center, var(--fog-color) 0%, transparent 68%);
+  will-change: transform;
+}
+
+.sky-fog-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--fog-color);
+  opacity: calc(var(--fog) * 0.5);
+}
+
+.sky-dim {
+  position: absolute;
+  inset: 0;
+  background: var(--isobar);
+  opacity: calc((1 - var(--sun)) * 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star-twinkle,
+  .sky-rain {
+    animation: none;
+  }
+  .sky-scene,
+  body {
+    transition: none;
+  }
+}
