@@ -3,7 +3,11 @@ import type { Picked } from "@/lib/recommendations";
 import { signed, SCORE_NAMES } from "@/lib/readout";
 import type { Report } from "@/lib/report";
 import type { ScoreKey } from "@/lib/types";
+import type { Achievement } from "@/lib/achievements";
+import type { Feeling, Suggestion } from "@/lib/suggestions";
 import { DayStrip } from "./DayStrip";
+import { MoodSuggestions } from "./MoodSuggestions";
+import { ShareCard } from "./ShareCard";
 import { PressureGauge } from "./PressureGauge";
 
 type Props = {
@@ -11,6 +15,10 @@ type Props = {
   recommendations: Picked[];
   result: ScoreResult;
   now: Date;
+  suggestions: { feeling: Feeling; items: Suggestion[] };
+  streak: number;
+  achievements: Achievement[];
+  racing: boolean;
   onBack: () => void;
   onRestart: () => void;
 };
@@ -29,7 +37,18 @@ const primaryButton =
   "border border-isobar bg-low-sun px-6 py-3 text-lg text-isobar transition-opacity hover:opacity-90";
 
 /** The result screen: the headline sits on the sky, the report on solid ground below the horizon. */
-export function ForecastReport({ report, recommendations, result, now, onBack, onRestart }: Props) {
+export function ForecastReport({
+  report,
+  recommendations,
+  result,
+  now,
+  suggestions,
+  streak,
+  achievements,
+  racing,
+  onBack,
+  onRestart,
+}: Props) {
   const dateLine = now.toLocaleString("en-GB", {
     weekday: "long",
     day: "numeric",
@@ -106,6 +125,18 @@ export function ForecastReport({ report, recommendations, result, now, onBack, o
 
             <PressureGauge pressure={report.pressure} />
           </div>
+
+          <MoodSuggestions feeling={suggestions.feeling} items={suggestions.items} />
+
+          <ShareCard
+            report={report}
+            scores={result.scores}
+            crash={result.crash}
+            racing={racing}
+            now={now}
+            streak={streak}
+            achievements={achievements}
+          />
 
           <details className="group max-w-3xl border-y border-hairline">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-xl [&::-webkit-details-marker]:hidden">

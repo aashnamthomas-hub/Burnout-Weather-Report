@@ -12,9 +12,11 @@ import {
   type QuestionId,
 } from "@/lib/questions";
 import { describeChange } from "@/lib/readout";
+import { computeStats, earnedAchievements } from "@/lib/achievements";
 import { pickRecommendations } from "@/lib/recommendations";
 import { buildReport, isGoodDay, modeFor } from "@/lib/report";
 import { readStorage, saveCheckIn } from "@/lib/storage";
+import { daySeed, pickSuggestions } from "@/lib/suggestions";
 import type { Answers, CheckIn as SavedCheckIn } from "@/lib/types";
 import { ChipGroup } from "./ChipGroup";
 import { ForecastReport } from "./ForecastReport";
@@ -64,6 +66,15 @@ export function CheckIn() {
         : [],
     [step, answers, result, now],
   );
+
+  const suggestions = useMemo(
+    () => pickSuggestions({ answers, scores: result.scores, good: isGoodDay(result), seed: daySeed(now) }),
+    [answers, result, now],
+  );
+  const { stats, achievements } = useMemo(() => {
+    const today = { date: now.toISOString(), scores: result.scores, crash: result.crash };
+    return { stats: computeStats(history, today, now), achievements: earnedAchievements(history, today, now) };
+  }, [history, result, now]);
 
   // Each finished check-in is saved once; changing an answer afterwards updates the same entry.
   const savedDate = useRef<string | null>(null);
@@ -144,6 +155,10 @@ export function CheckIn() {
         recommendations={recommendations}
         result={result}
         now={now}
+        suggestions={suggestions}
+        streak={stats.streak}
+        achievements={achievements}
+        racing={answers.head === "racing"}
         onBack={back}
         onRestart={restart}
       />

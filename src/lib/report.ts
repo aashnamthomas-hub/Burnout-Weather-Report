@@ -4,7 +4,7 @@
 
 import type { ScoreResult } from "./forecast";
 import { partOfDay, type PartOfDay } from "./questions";
-import type { Answers, Trend } from "./types";
+import type { Answers, Scores, Trend } from "./types";
 
 /** "day": before noon, forecast the whole day. "now": noon to 6 PM. "tonight": 6 PM onward. */
 export type Mode = "day" | "now" | "tonight";
@@ -38,6 +38,8 @@ export type DayBlock = {
   id: BlockId;
   label: string;
   range: string;
+  startHour: number;
+  endHour: number;
   status: "past" | "now" | "later";
   /** Sampled across the block, 0-100. */
   energy: number[];
@@ -107,7 +109,10 @@ function curveAt(
 const mean = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
 
 export function isGoodDay(result: ScoreResult): boolean {
-  const { scores, crash } = result;
+  return isGoodScores(result.scores, result.crash);
+}
+
+export function isGoodScores(scores: Scores, crash: number): boolean {
   const { minScore, maxPressure, maxCrash } = REPORT.good;
   return (
     Math.min(scores.energy, scores.focus, scores.mood, scores.social) >= minScore &&
@@ -238,6 +243,8 @@ export function buildReport(
       id,
       label,
       range: `${clock12(start)}-${clock12(end)}`,
+      startHour: start,
+      endHour: end,
       status: hour >= end ? "past" : hour >= start ? "now" : "later",
       energy,
       focus,
@@ -273,4 +280,17 @@ export function buildReport(
     stormWarning: good ? null : buildStormWarning(result, mode, upcomingCrash),
     tomorrowNote: buildTomorrowNote(answers, result, mode),
   };
+}
+
+/** The whole day as (hour, value) points, for charts that span the four blocks. */
+export function dayCurve(blocks: DayBlock[], key: "energy" | "focus"): [number, number][] {
+  const points: [number, number][] = [];
+  for (const block of blocks) {
+    const values = block[key];
+    values.forEach((value, i) => {
+      if (i === 0 && points.length > 0) return; // the block boundary is already there
+      points.push([block.startHour + ((block.endHour - block.startHour) * i) / (values.length - 1), value]);
+    });
+  }
+  return points;
 }
