@@ -1,0 +1,57 @@
+import type { Change } from "@/lib/readout";
+import { signed } from "@/lib/readout";
+import type { ScoreKey, Scores } from "@/lib/types";
+
+const ROWS: { key: Exclude<ScoreKey, "pressure">; label: string }[] = [
+  { key: "energy", label: "Energy" },
+  { key: "focus", label: "Focus" },
+  { key: "mood", label: "Mood" },
+  { key: "social", label: "Social battery" },
+];
+
+type Props = {
+  scores: Scores;
+  change: Change | null;
+};
+
+/** The four scores, how far the last answer moved each, and why. */
+export function LiveReadout({ scores, change }: Props) {
+  return (
+    <section aria-labelledby="readout-title" className="bg-ground p-4 text-ink lg:p-5">
+      <h2 id="readout-title" className="text-base font-medium">
+        Your forecast so far
+      </h2>
+
+      <dl className="mt-3 grid grid-cols-4 gap-2 lg:grid-cols-1 lg:gap-0 lg:divide-y lg:divide-hairline">
+        {ROWS.map(({ key, label }) => {
+          const delta = change?.deltas[key] ?? 0;
+          return (
+            <div
+              key={key}
+              className="flex flex-col gap-0.5 lg:flex-row lg:items-baseline lg:justify-between lg:py-2"
+            >
+              <dt className="text-xs text-ink-soft sm:text-sm lg:text-base lg:text-ink">{label}</dt>
+              <dd className="flex items-baseline gap-1.5 font-mono tabular-nums">
+                <span className="text-xl lg:text-2xl">{scores[key]}</span>
+                <span
+                  className="text-xs text-ink-soft"
+                  aria-label={delta === 0 ? "no change" : `${delta > 0 ? "up" : "down"} ${Math.abs(delta)}`}
+                >
+                  {delta === 0 ? "" : `${delta > 0 ? "▲" : "▼"} ${signed(delta)}`}
+                </span>
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+
+      <p aria-live="polite" className="mt-3 min-h-10 border-t border-hairline pt-3 text-sm text-ink-soft">
+        {change === null
+          ? "Answer a question and your numbers will move."
+          : change.reasons.length > 0
+            ? change.reasons.map((reason) => <span key={reason} className="block">{reason}</span>)
+            : "That answer didn't move anything."}
+      </p>
+    </section>
+  );
+}

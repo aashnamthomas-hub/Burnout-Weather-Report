@@ -3,10 +3,13 @@
 // blocked (privacy settings), full, or hold malformed data. Callers always get
 // a usable value back and never see an exception.
 
+import type { CheckIn } from "./types";
+
 export type ThemePreference = "day" | "night";
 
 export type StorageSchema = {
   theme: ThemePreference;
+  checkIns: CheckIn[];
 };
 
 export type StorageKey = keyof StorageSchema;

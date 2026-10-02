@@ -16,6 +16,19 @@ export type Deadlines = "none" | "1" | "2" | "3plus";
 export type TrainingLoad = "rest" | "easy" | "hard" | "brutal";
 export type Head = "clear" | "busy" | "racing" | "foggy" | "flat";
 
+// Follow-up answers. These steer advice (Phase 4) rather than the scores.
+export type SleepNights = "0to1" | "2to3" | "4plus";
+export type SleepBlocker = "work" | "screens" | "mind" | "other";
+export type YesNo = "yes" | "no";
+export type FirstDeadline = "today" | "tomorrow" | "dayAfter";
+export type Pain = "soreness" | "pain";
+export type RacingAbout = "work" | "exams" | "personal" | "nothing";
+export type MovementBlocker = "time" | "energy" | "weather" | "havent";
+/** An optional question the person chose not to answer is stored as "skipped". */
+export type Weighing = "yes" | "no" | "skipped";
+export type Screens = "likely" | "unlikely";
+export type Tomorrow = "light" | "normal" | "packed";
+
 /** Everything is optional: scores are recomputed after every single answer. */
 export type Answers = {
   profile?: Profile;
@@ -32,6 +45,19 @@ export type Answers = {
   training?: TrainingLoad;
   head?: Head;
   avoidPeople?: boolean;
+  sleepNights?: SleepNights;
+  sleepBlocker?: SleepBlocker;
+  canEat?: YesNo;
+  jittery?: YesNo;
+  gaps?: YesNo;
+  skippable?: YesNo;
+  firstDeadline?: FirstDeadline;
+  pain?: Pain;
+  racingAbout?: RacingAbout;
+  movementBlocker?: MovementBlocker;
+  weighing?: Weighing;
+  screens?: Screens;
+  tomorrow?: Tomorrow;
 };
 
 export type ScoreKey = "energy" | "focus" | "mood" | "social" | "pressure";
