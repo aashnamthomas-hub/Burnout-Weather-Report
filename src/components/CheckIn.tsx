@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { computeScores } from "@/lib/forecast";
 import {
   QUESTION_BY_ID,
@@ -12,9 +12,12 @@ import {
   type QuestionId,
 } from "@/lib/questions";
 import { describeChange } from "@/lib/readout";
-import { readStorage } from "@/lib/storage";
+import { pickRecommendations } from "@/lib/recommendations";
+import { buildReport, isGoodDay, modeFor } from "@/lib/report";
+import { readStorage, saveCheckIn } from "@/lib/storage";
 import type { Answers, CheckIn as SavedCheckIn } from "@/lib/types";
 import { ChipGroup } from "./ChipGroup";
+import { ForecastReport } from "./ForecastReport";
 import { LiveReadout } from "./LiveReadout";
 import { useSky } from "./SkyProvider";
 
@@ -50,6 +53,32 @@ export function CheckIn() {
 
   const step: Step | undefined = path[path.length - 1];
 
+  const report = useMemo(
+    () => (step === "done" ? buildReport(answers, result, history.length, now) : null),
+    [step, answers, result, history.length, now],
+  );
+  const recommendations = useMemo(
+    () =>
+      step === "done"
+        ? pickRecommendations({ a: answers, r: result, hour: now.getHours(), mode: modeFor(now), good: isGoodDay(result) })
+        : [],
+    [step, answers, result, now],
+  );
+
+  // Each finished check-in is saved once; changing an answer afterwards updates the same entry.
+  const savedDate = useRef<string | null>(null);
+  useEffect(() => {
+    if (step !== "done") return;
+    const date = savedDate.current ?? now.toISOString();
+    savedDate.current = date;
+    saveCheckIn({ date, answers, scores: result.scores, crash: result.crash });
+  }, [step, answers, result, now]);
+
+  // Move keyboard focus to the headline when the forecast appears.
+  useEffect(() => {
+    if (step === "done") document.getElementById("forecast-headline")?.focus({ preventScroll: true });
+  }, [step]);
+
   const goTo = (nextAnswers: Answers, clock: Date) => {
     const next = getNextQuestion(nextAnswers, history, clock);
     setPath((p) => [...p, next === "done" ? "done" : next.id]);
@@ -68,6 +97,8 @@ export function CheckIn() {
   };
 
   const restart = () => {
+    savedDate.current = null;
+    window.scrollTo({ top: 0 });
     setAnswers({});
     setBefore(null);
     setPath([]);
@@ -89,6 +120,7 @@ export function CheckIn() {
 
   if (!started || step === undefined) {
     return (
+      <Frame>
       <div className="max-w-2xl text-sky-ink">
         <h1 className="text-4xl leading-[1.05] font-normal tracking-tight text-balance sm:text-6xl">
           Check your own weather before you plan the day.
@@ -101,20 +133,32 @@ export function CheckIn() {
           Start check-in
         </button>
       </div>
+      </Frame>
     );
   }
+
+  if (step === "done" && report) {
+    return (
+      <ForecastReport
+        report={report}
+        recommendations={recommendations}
+        result={result}
+        now={now}
+        onBack={back}
+        onRestart={restart}
+      />
+    );
+  }
+  if (step === "done") return null;
 
   const progress = getProgress(answers, history, now);
   const position = path.filter((id) => id !== "final" && id !== "done").length;
   const barPercent = Math.min(100, Math.round((progress.answered / Math.max(1, progress.total)) * 100));
   const progressLabel =
-    step === "final"
-      ? "Last step"
-      : step === "done"
-        ? "All done"
-        : `Question ${position} of about ${Math.max(position, progress.total)}`;
+    step === "final" ? "Last step" : `Question ${position} of about ${Math.max(position, progress.total)}`;
 
   return (
+    <Frame>
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
       <div className="text-sky-ink">
         <div className="max-w-2xl">
@@ -124,19 +168,17 @@ export function CheckIn() {
             aria-label="Check-in progress"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={step === "done" ? 100 : barPercent}
+            aria-valuenow={barPercent}
             className="mt-2 h-px w-full bg-sky-ink/30"
           >
             <div
               className="h-px bg-sky-ink transition-[width] duration-300 motion-reduce:transition-none"
-              style={{ width: `${step === "done" ? 100 : barPercent}%` }}
+              style={{ width: `${barPercent}%` }}
             />
           </div>
         </div>
 
-        {step === "done" ? (
-          <DoneStep key="done" onBack={back} onRestart={restart} />
-        ) : step === "final" ? (
+        {step === "final" ? (
           <FinalStep
             key="final"
             initial={answers.avoidPeople ?? false}
@@ -156,11 +198,9 @@ export function CheckIn() {
           />
         )}
 
-        {step !== "done" && (
-          <button type="button" onClick={restart} className={`${textButton} mt-10 block`}>
-            Start over
-          </button>
-        )}
+        <button type="button" onClick={restart} className={`${textButton} mt-10 block`}>
+          Start over
+        </button>
       </div>
 
       <div className="lg:sticky lg:top-6 lg:self-start">
@@ -168,6 +208,15 @@ export function CheckIn() {
           <LiveReadout scores={result.scores} change={change} />
         </div>
       </div>
+    </div>
+    </Frame>
+  );
+}
+
+function Frame({ children }: { children: ReactNode }) {
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-12 sm:px-8 lg:py-20">
+      {children}
     </div>
   );
 }
@@ -286,27 +335,6 @@ function FinalStep({
         )}
         <button type="button" onClick={() => onSubmit(avoidPeople)} className={primaryButton}>
           Get my forecast
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function DoneStep({ onBack, onRestart }: { onBack: () => void; onRestart: () => void }) {
-  return (
-    <section aria-labelledby="done-title" className="mt-8 max-w-2xl">
-      <h2 id="done-title" tabIndex={-1} className="text-3xl leading-tight font-normal text-balance sm:text-4xl">
-        That&apos;s everything. Your sky is set.
-      </h2>
-      <p className="mt-3 text-lg text-pretty">
-        The numbers beside this are where your answers landed. Change an answer and they move again.
-      </p>
-      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <button type="button" onClick={onBack} className={textButton}>
-          Back
-        </button>
-        <button type="button" onClick={onRestart} className={primaryButton}>
-          Start over
         </button>
       </div>
     </section>

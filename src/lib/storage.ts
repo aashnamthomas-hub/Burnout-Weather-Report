@@ -55,6 +55,22 @@ export function writeStorage<K extends StorageKey>(
   }
 }
 
+/** Most check-ins kept; older ones are dropped first. */
+export const MAX_SAVED_CHECK_INS = 120;
+
+/**
+ * Saves a completed check-in. Passing the same `date` again replaces that entry,
+ * so editing answers after the forecast doesn't create duplicates.
+ */
+export function saveCheckIn(checkIn: CheckIn): boolean {
+  const saved = readStorage("checkIns");
+  const others = (Array.isArray(saved) ? saved : []).filter((c) => c?.date !== checkIn.date);
+  const next = [...others, checkIn]
+    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+    .slice(-MAX_SAVED_CHECK_INS);
+  return writeStorage("checkIns", next);
+}
+
 export function removeStorage(key: StorageKey): boolean {
   try {
     const store = getStore();
