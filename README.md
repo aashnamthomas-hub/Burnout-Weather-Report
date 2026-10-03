@@ -29,6 +29,9 @@ The first question sets the kind of day (desk, study or training). It changes wh
 - **"Why this forecast?"** An expandable list of every rule that fired and the points it added or took away.
 - **Something for how you feel.** Films, shows, people to reach out to and gentle things to do, picked by mood. The film picks mix Hindi and international titles.
 - **A share card.** A picture of today's sky, headline and four readings, plus streaks and milestones, like the stats under a run. Download it, copy the text, or use your device's share sheet. It never includes your answers.
+- **A week as a climate chart** (/week). Seven days of energy, focus and burnout pressure as an SVG chart, with one sentence generated from the data ("Your crash days are the days you skip a proper meal."), a table of the numbers, a "Load sample week" button so you can see it populated, and "Clear my data".
+- **Calendar awareness, privately.** An optional first step: try a sample calendar, or import an .ics file (choose it or drop it). It is parsed in the browser by a small hand-written parser that handles all-day events, time zones, basic repeating events and cancelled events. Only start and end times are used by default; "Use event titles for smarter tips" is opt-in, and titles are never saved. The forecast then uses your real meeting count and back-to-back time, tips name your actual gaps, and a thin timeline sits under the day strip.
+- **Cycle awareness, opt-in and private.** Off unless you switch it on (first screen, or Settings). It never asks for gender and never predicts or estimates anything from dates: it only uses your own daily answers (where you are in your cycle, flow, cramps, what you are noticing). Every adjustment shows up in "Why this forecast?", tips use "many people find" wording, and there are separate "Remove cycle data" and "Clear my data" buttons.
 - **A gentle support note.** After several very low days in a row, a short, non-diagnostic note encourages talking to someone you trust or a professional.
 - **Day and night skies,** following your system setting with a manual toggle. Reduced motion is respected.
 
@@ -46,7 +49,7 @@ The first question sets the kind of day (desk, study or training). It changes wh
 
 ## How AI helped build it
 
-This project was built with Claude Code, working one phase at a time: design plan, scaffold and sky, scoring engine, adaptive check-in, forecast and recommendations, then this safety and polish pass. The AI wrote the code and tests and ran the lint, build and browser checks; the product decisions (the idea, the audience, the rules of the model, the tone, what to cut) were made by a person. The forecast itself uses no AI at all: it is plain, readable rules.
+This project was built with Claude Code, working one phase at a time: design plan, scaffold and sky, scoring engine, adaptive check-in, forecast and recommendations, a safety and polish pass, the weekly chart, the share card, calendar awareness, cycle awareness, and a final check. The AI wrote the code and tests and ran the lint, build and browser checks; the product decisions (the idea, the audience, the rules of the model, the tone, what to cut) were made by a person. The forecast itself uses no AI at all: it is plain, readable rules.
 
 ## Honest limitations
 
@@ -56,7 +59,8 @@ This project was built with Claude Code, working one phase at a time: design pla
 - **History lives in one browser.** Clear your site data, or switch browsers or devices, and it's gone.
 - **Film and show suggestions are a small hand-written list.** Titles and years are real, but availability depends on where you live, so the app doesn't name streaming services.
 - **The share card is an image and some text.** The app can't post for you (there is no backend); it hands the card to your device's share options.
-- **Not built yet:** a weekly "climate" chart, calendar import and cycle awareness.
+- **The calendar parser is deliberately small.** It reads one day at a time and handles the common cases (UTC and named time zones, all-day events, daily, weekly, monthly and yearly repeats with COUNT, UNTIL, EXDATE and edited occurrences). Unusual repeat rules or unfamiliar Windows time zone names may be read as local time. Check the summary it shows before you rely on it.
+- **Cycle features use only what you tell the app.** They don't predict anything, and they are not a substitute for talking to a doctor about heavy or painful periods; the app says so.
 
 ## Run it locally
 
@@ -75,7 +79,7 @@ Other commands:
 
 ```bash
 npm run lint    # eslint
-npm test        # vitest: forecast, questions, recommendations, report, suggestions, achievements, safety
+npm test        # vitest: scoring, questions, recommendations, report, insights, calendar parser, cycle, safety, share card
 npm run build   # production build
 ```
 
@@ -92,7 +96,9 @@ src/lib/report.ts           headline, day strip, barometer, storm warning
 src/lib/recommendations.ts  about 45 written recommendations
 src/lib/suggestions.ts      mood-based things to watch, do and listen to
 src/lib/achievements.ts     streaks and milestones for the share card
-src/lib/safety.ts           the gentle support note
+src/lib/insights.ts         the one-sentence insight for the week
+src/lib/calendar.ts         .ics parser, gap finding, sample calendar
+src/lib/safety.ts           the gentle support note and cycle notes
 src/lib/storage.ts          typed, failure-proof localStorage
 src/components/             sky, check-in, forecast report, share card
 ```
