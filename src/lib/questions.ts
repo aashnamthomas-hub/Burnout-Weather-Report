@@ -16,6 +16,8 @@ export type QuestionContext = {
 /** One row of chips. A question is either one field, or a few fields shown together. */
 export type Field = {
   key: keyof Answers;
+  /** Several chips can be picked; the answer is a list. */
+  multi?: boolean;
   /** Shown above the chips when a question has more than one field. */
   label?: string;
   options: Option[];
@@ -23,7 +25,17 @@ export type Field = {
   showIf?: (answers: Answers) => boolean;
 };
 
+/** Settings that change which questions exist. */
+export type QuestionOptions = {
+  /** The person chose to factor in their cycle. Cycle questions never appear without this. */
+  cycle?: boolean;
+};
+
 export type QuestionId =
+  | "cycle"
+  | "flow"
+  | "cramps"
+  | "noticing"
   | "profile"
   | "sleep"
   | "wake"
@@ -58,6 +70,8 @@ export type Question = {
   core?: boolean;
   /** Safety and food-access follow-ups may use the last slot in the budget. */
   essential?: boolean;
+  /** Slots to keep free for this question's follow-ups while it is still waiting to be asked. */
+  reserves?: number;
   /** "choice" advances on tap, "group" has several rows and a Next button, "final" is the last screen. */
   kind: "choice" | "group" | "final";
   /** Optional questions can be skipped. */
@@ -65,11 +79,15 @@ export type Question = {
   text: (ctx: QuestionContext) => string;
   help?: (ctx: QuestionContext) => string | undefined;
   fields: (ctx: QuestionContext) => Field[];
-  askIf: (answers: Answers, history: CheckIn[], now: Date) => boolean;
+  askIf: (answers: Answers, history: CheckIn[], now: Date, options: QuestionOptions) => boolean;
 };
 
 /** Most questions in one check-in (not counting the final confirm screen). */
 export const MAX_QUESTIONS = 11;
+/** Turning on the cycle adds up to two follow-ups (flow and cramps), so the limit grows by that much. */
+export const CYCLE_EXTRA_QUESTIONS = 2;
+
+export const maxQuestions = (options: QuestionOptions) => MAX_QUESTIONS + (options.cycle ? CYCLE_EXTRA_QUESTIONS : 0);
 
 /** Thresholds for reading history. These steer which questions appear; they don't change scores. */
 export const HISTORY_RULES = {
@@ -383,7 +401,8 @@ export const QUESTIONS: Question[] = [
       { value: "3to5", label: "3-5" },
       { value: "6plus", label: "6+" },
     ]),
-    askIf: profileIs("desk"),
+    // A connected calendar answers this for the forecast.
+    askIf: (a) => a.profile === "desk" && !a.calendar,
   },
   {
     id: "deadlines",
@@ -432,7 +451,8 @@ export const QUESTIONS: Question[] = [
     kind: "choice",
     text: () => "Are there any gaps of 15+ minutes between meetings?",
     fields: single("gaps", yesNo("Yes, a few", "No, back to back")),
-    askIf: (a) => a.profile === "desk" && a.meetings === "6plus",
+    // A connected calendar already answers this.
+    askIf: (a) => a.profile === "desk" && a.meetings === "6plus" && !a.calendar,
   },
   {
     id: "skippable",
@@ -440,7 +460,7 @@ export const QUESTIONS: Question[] = [
     kind: "choice",
     text: () => "Could any of them be skipped or moved?",
     fields: single("skippable", yesNo("Yes, maybe one", "No, they're all fixed")),
-    askIf: (a) => a.profile === "desk" && a.meetings === "6plus",
+    askIf: (a) => a.profile === "desk" && (a.meetings === "6plus" || (a.calendar?.count ?? 0) >= 6),
   },
   {
     id: "firstDeadline",
@@ -453,6 +473,70 @@ export const QUESTIONS: Question[] = [
       { value: "dayAfter", label: "The day after" },
     ]),
     askIf: (a) => a.profile === "study" && a.deadlines === "3plus",
+  },
+  {
+    id: "cycle",
+    priority: 45,
+    core: true,
+    reserves: CYCLE_EXTRA_QUESTIONS,
+    kind: "choice",
+    text: () => "Where are you in your cycle?",
+    help: () => "Only your own answer is used. Nothing is guessed from dates, and it stays in this browser.",
+    fields: single("cycle", [
+      { value: "period", label: "On my period" },
+      { value: "pms", label: "Just before my period", hint: "PMS days" },
+      { value: "between", label: "Between periods" },
+      { value: "unsure", label: "Not sure or not applicable today" },
+    ]),
+    askIf: (_a, _h, _n, o) => Boolean(o.cycle),
+  },
+  {
+    id: "flow",
+    priority: 44,
+    core: true,
+    kind: "choice",
+    text: () => "How heavy is your flow?",
+    fields: single("flow", [
+      { value: "light", label: "Light" },
+      { value: "medium", label: "Medium" },
+      { value: "heavy", label: "Heavy" },
+    ]),
+    askIf: (a, _h, _n, o) => Boolean(o.cycle) && a.cycle === "period",
+  },
+  {
+    id: "cramps",
+    priority: 43,
+    core: true,
+    kind: "choice",
+    text: () => "Any cramps or pain?",
+    fields: single("cramps", [
+      { value: "none", label: "None" },
+      { value: "mild", label: "Mild" },
+      { value: "strong", label: "Strong" },
+    ]),
+    askIf: (a, _h, _n, o) => Boolean(o.cycle) && a.cycle === "period",
+  },
+  {
+    id: "noticing",
+    priority: 44,
+    core: true,
+    kind: "group",
+    text: () => "What are you noticing?",
+    help: () => "Pick any that fit, or none.",
+    fields: () => [
+      {
+        key: "noticing",
+        multi: true,
+        options: [
+          { value: "mood", label: "Mood dips" },
+          { value: "cravings", label: "Cravings" },
+          { value: "bloating", label: "Bloating" },
+          { value: "sleep", label: "Trouble sleeping" },
+          { value: "nothing", label: "Nothing in particular" },
+        ],
+      },
+    ],
+    askIf: (a, _h, _n, o) => Boolean(o.cycle) && a.cycle === "pms",
   },
   {
     id: "head",
@@ -562,14 +646,14 @@ export function isAnswered(q: Question, ctx: QuestionContext): boolean {
  * Drops answers to questions that no longer apply (for example the wake-up
  * answer after changing sleep to 8+ hours), until nothing more changes.
  */
-export function pruneAnswers(answers: Answers, history: CheckIn[], now: Date): Answers {
+export function pruneAnswers(answers: Answers, history: CheckIn[], now: Date, options: QuestionOptions = {}): Answers {
   let current = answers;
   for (let pass = 0; pass < QUESTIONS.length; pass++) {
     const next: Answers = { ...current };
     const ctx = ctxOf(current, history, now);
     for (const q of QUESTIONS) {
       if (q.kind === "final") continue;
-      const applies = q.askIf(current, history, now);
+      const applies = q.askIf(current, history, now, options);
       const shown = new Set<keyof Answers>(applies ? visibleFields(q, ctx).map((f) => f.key) : []);
       for (const field of q.fields(ctx)) {
         if (!shown.has(field.key)) delete next[field.key];
@@ -583,27 +667,31 @@ export function pruneAnswers(answers: Answers, history: CheckIn[], now: Date): A
 
 type Planned = { askedCount: number; eligible: Question[]; coreRemaining: number };
 
-function plan(answers: Answers, history: CheckIn[], now: Date): Planned {
+function plan(answers: Answers, history: CheckIn[], now: Date, options: QuestionOptions): Planned {
   const ctx = ctxOf(answers, history, now);
-  const applicable = QUESTIONS.filter((q) => q.id !== "final" && q.askIf(answers, history, now));
+  const applicable = QUESTIONS.filter((q) => q.id !== "final" && q.askIf(answers, history, now, options));
   const askedCount = applicable.filter((q) => isAnswered(q, ctx)).length;
   const eligible = applicable
     .filter((q) => !isAnswered(q, ctx))
     .sort((a, b) => b.priority - a.priority);
-  return { askedCount, eligible, coreRemaining: eligible.filter((q) => q.core).length };
+  // Questions still waiting to be asked also hold back room for their follow-ups.
+  const reserved = eligible.reduce((sum, q) => sum + (q.reserves ?? 0), 0);
+  return { askedCount, eligible, coreRemaining: eligible.filter((q) => q.core).length + reserved };
 }
 
 /** Extra (non-core) questions need room left once the core questions are accounted for. */
-const hasRoom = (q: Question, count: number, coreLeft: number) =>
-  count + coreLeft + 1 <= (q.essential ? MAX_QUESTIONS : MAX_QUESTIONS - 1);
+const hasRoom = (q: Question, count: number, coreLeft: number, max: number) =>
+  count + coreLeft + 1 <= (q.essential ? max : max - 1);
 
 export function getNextQuestion(
   answers: Answers,
   history: CheckIn[],
   now: Date,
+  options: QuestionOptions = {},
 ): Question | "done" {
-  const { askedCount, eligible, coreRemaining } = plan(answers, history, now);
-  const next = eligible.find((q) => q.core || hasRoom(q, askedCount, coreRemaining));
+  const { askedCount, eligible, coreRemaining } = plan(answers, history, now, options);
+  const max = maxQuestions(options);
+  const next = eligible.find((q) => q.core || hasRoom(q, askedCount, coreRemaining, max));
   if (next) return next;
   return answers.avoidPeople === undefined ? QUESTION_BY_ID.final : "done";
 }
@@ -613,15 +701,17 @@ export function getProgress(
   answers: Answers,
   history: CheckIn[],
   now: Date,
+  options: QuestionOptions = {},
 ): { answered: number; total: number } {
-  const { askedCount, eligible, coreRemaining } = plan(answers, history, now);
+  const { askedCount, eligible, coreRemaining } = plan(answers, history, now, options);
+  const max = maxQuestions(options);
   let count = askedCount;
   let coreLeft = coreRemaining;
   for (const q of eligible) {
     if (q.core) {
       count += 1;
-      coreLeft -= 1;
-    } else if (hasRoom(q, count, coreLeft)) {
+      coreLeft -= 1 + (q.reserves ?? 0);
+    } else if (hasRoom(q, count, coreLeft, max)) {
       count += 1;
     }
   }

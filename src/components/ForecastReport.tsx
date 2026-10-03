@@ -7,7 +7,9 @@ import type { ScoreKey } from "@/lib/types";
 import type { Achievement } from "@/lib/achievements";
 import { SUPPORT_NOTE } from "@/lib/safety";
 import type { Feeling, Suggestion } from "@/lib/suggestions";
+import type { CalendarSummary } from "@/lib/types";
 import { DayStrip } from "./DayStrip";
+import { MeetingsTimeline } from "./MeetingsTimeline";
 import { MoodSuggestions } from "./MoodSuggestions";
 import { ShareCard } from "./ShareCard";
 import { PressureGauge } from "./PressureGauge";
@@ -23,6 +25,13 @@ type Props = {
   racing: boolean;
   /** Show the gentle note after several very low days in a row. */
   supportNote: boolean;
+  /** Gentle lines about the cycle answers, such as when to mention something to a doctor. */
+  cycleNotes: string[];
+  /** The person answered the cycle questions today. */
+  hasCycle: boolean;
+  calendar: CalendarSummary | undefined;
+  onRemoveCalendar: () => void;
+  onRemoveCycle: () => void;
   onBack: () => void;
   onRestart: () => void;
 };
@@ -51,6 +60,11 @@ export function ForecastReport({
   achievements,
   racing,
   supportNote,
+  cycleNotes,
+  hasCycle,
+  calendar,
+  onRemoveCalendar,
+  onRemoveCycle,
   onBack,
   onRestart,
 }: Props) {
@@ -99,6 +113,15 @@ export function ForecastReport({
             </aside>
           )}
 
+          {cycleNotes.length > 0 && (
+            <aside aria-labelledby="cycle-note-title" className="max-w-3xl border-l-2 border-ink py-1 pl-4">
+              <h3 id="cycle-note-title" className="text-xl font-medium">A note on your cycle</h3>
+              {cycleNotes.map((note) => (
+                <p key={note} className="mt-1 text-lg text-pretty">{note}</p>
+              ))}
+            </aside>
+          )}
+
           {report.stormWarning && (
             <p
               role="note"
@@ -114,6 +137,18 @@ export function ForecastReport({
           )}
 
           <DayStrip blocks={report.blocks} crash={result.crash} />
+
+          {calendar && (
+            <div>
+              <MeetingsTimeline calendar={calendar} nowMinutes={now.getHours() * 60 + now.getMinutes()} />
+              <p className="mt-2 max-w-2xl text-base text-ink-soft text-pretty">
+                Your calendar is read in your browser and never leaves it.{" "}
+                <button type="button" onClick={onRemoveCalendar} className={textButton}>
+                  Remove calendar
+                </button>
+              </p>
+            </div>
+          )}
 
           {report.tomorrowNote && (
             <p className="max-w-3xl text-lg text-pretty">
@@ -184,6 +219,15 @@ export function ForecastReport({
               </p>
             </div>
           </details>
+
+          {hasCycle && (
+            <p className="max-w-2xl text-base text-ink-soft text-pretty">
+              Cycle info stays in this browser.{" "}
+              <button type="button" onClick={onRemoveCycle} className={textButton}>
+                Remove cycle data
+              </button>
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <button type="button" onClick={onBack} className={textButton}>

@@ -2,10 +2,14 @@
 // computeScores is pure: same answers, history and clock in, same result out.
 // Every rule that changes a number is reported back so the UI can explain itself.
 
+import { formatDuration } from "./calendar";
 import type {
   Answers,
   Caffeine,
   CheckIn,
+  Cramps,
+  CyclePhase,
+  Flow,
   Deadlines,
   Head,
   LastMeal,
@@ -128,6 +132,35 @@ export const WEIGHTS = {
 
   avoidPeople: v(0, 0, 0, -15),
 
+  // Calendar: back-to-back time on top of the meeting count. Every full hour past
+  // `runFreeMinutes` of unbroken meetings adds these points, up to `maxHoursOver` hours.
+  calendar: {
+    runFreeMinutes: 60,
+    maxHoursOver: 3,
+    perHourOver: v(0, 0, 0, -4, 3),
+  },
+
+  // Cycle: only the person's own answers are used, never dates. Medium flow, mild
+  // cramps, "between periods" and "not sure" add nothing.
+  cycle: {
+    phase: {
+      period: v(),
+      pms: v(-4, -3, -8, -6, 3),
+      between: v(),
+      unsure: v(),
+    } satisfies Record<CyclePhase, Delta>,
+    flow: {
+      light: v(-3, 0, -2, 0, 0),
+      medium: v(),
+      heavy: v(-10, -4, -3, 0, 4),
+    } satisfies Record<Flow, Delta>,
+    cramps: {
+      none: v(),
+      mild: v(),
+      strong: v(-8, -8, -5, -5, 5),
+    } satisfies Record<Cramps, Delta>,
+  },
+
   // Compares Burnout pressure across the most recent earlier check-ins.
   trend: {
     windowSize: 3, // check-ins considered
@@ -233,6 +266,16 @@ const LABELS = {
     flat: "Feeling flat",
   } satisfies Record<Head, string>,
   avoidPeople: "Rather not talk to people today",
+  cycle: {
+    phase: {
+      period: "On your period",
+      pms: "Just before your period",
+      between: "Between periods",
+      unsure: "Cycle: not sure today",
+    } satisfies Record<CyclePhase, string>,
+    flow: { light: "Light flow", medium: "Medium flow", heavy: "Heavy flow" } satisfies Record<Flow, string>,
+    cramps: { none: "No cramps", mild: "Mild cramps", strong: "Strong cramps or pain" } satisfies Record<Cramps, string>,
+  },
   trendRising: "Pressure rising over recent check-ins",
   trendFalling: "Pressure easing over recent check-ins",
   crash: {
@@ -250,6 +293,11 @@ const PROFILE_NAMES: Record<Profile, string> = {
   study: "study day",
   training: "training day",
 };
+
+/** Which of the four "how many meetings" answers a count of meetings falls into. */
+export function meetingsBucket(count: number): Meetings {
+  return count === 0 ? "0" : count <= 2 ? "1to2" : count <= 5 ? "3to5" : "6plus";
+}
 
 /* ---------- Engine ---------- */
 
@@ -344,11 +392,29 @@ export function computeScores(
   if (answers.water) add(`water.${answers.water}`, LABELS.water[answers.water], WEIGHTS.water[answers.water], "water");
   if (answers.caffeine) add(`caffeine.${answers.caffeine}`, LABELS.caffeine[answers.caffeine], WEIGHTS.caffeine[answers.caffeine]);
   if (answers.movement) add(`movement.${answers.movement}`, LABELS.movement[answers.movement], WEIGHTS.movement[answers.movement], "movement");
-  if (answers.meetings) add(`meetings.${answers.meetings}`, LABELS.meetings[answers.meetings], WEIGHTS.meetings[answers.meetings]);
+  // A connected calendar stands in for the "how many meetings" answer.
+  const meetings = answers.meetings ?? (answers.calendar ? meetingsBucket(answers.calendar.count) : undefined);
+  if (meetings) add(`meetings.${meetings}`, LABELS.meetings[meetings], WEIGHTS.meetings[meetings]);
+  if (answers.calendar) {
+    const c = WEIGHTS.calendar;
+    const hoursOver = clamp((answers.calendar.longestRunMinutes - c.runFreeMinutes) / 60, 0, c.maxHoursOver);
+    if (hoursOver > 0) {
+      const scaled: Delta = {};
+      for (const key of SCORE_KEYS) {
+        const per = c.perHourOver[key as keyof typeof c.perHourOver];
+        if (per) scaled[key] = per * hoursOver;
+      }
+      add("calendar.backToBack", `Back-to-back meetings for ${formatDuration(answers.calendar.longestRunMinutes)}`, scaled);
+    }
+  }
   if (answers.deadlines) add(`deadlines.${answers.deadlines}`, LABELS.deadlines[answers.deadlines], WEIGHTS.deadlines[answers.deadlines]);
   if (answers.training) add(`training.${answers.training}`, LABELS.training[answers.training], WEIGHTS.training[answers.training]);
   if (answers.head) add(`head.${answers.head}`, LABELS.head[answers.head], WEIGHTS.head[answers.head], "head");
   if (answers.avoidPeople) add("avoidPeople", LABELS.avoidPeople, WEIGHTS.avoidPeople);
+
+  if (answers.cycle) add(`cycle.phase.${answers.cycle}`, LABELS.cycle.phase[answers.cycle], WEIGHTS.cycle.phase[answers.cycle]);
+  if (answers.flow) add(`cycle.flow.${answers.flow}`, LABELS.cycle.flow[answers.flow], WEIGHTS.cycle.flow[answers.flow]);
+  if (answers.cramps) add(`cycle.cramps.${answers.cramps}`, LABELS.cycle.cramps[answers.cramps], WEIGHTS.cycle.cramps[answers.cramps]);
 
   const trend = pressureTrend(history, now);
   if (trend === "Rising") add("trend.rising", LABELS.trendRising, WEIGHTS.trend.rising);

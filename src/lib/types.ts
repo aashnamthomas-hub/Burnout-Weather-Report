@@ -29,6 +29,36 @@ export type Weighing = "yes" | "no" | "skipped";
 export type Screens = "likely" | "unlikely";
 export type Tomorrow = "light" | "normal" | "packed";
 
+// Cycle answers are optional and come only from the person's own daily answers.
+export type CyclePhase = "period" | "pms" | "between" | "unsure";
+export type Flow = "light" | "medium" | "heavy";
+export type Cramps = "none" | "mild" | "strong";
+export type Noticing = "mood" | "cravings" | "bloating" | "sleep" | "nothing";
+
+/**
+ * What the app keeps about a calendar day: counts and times only. Event titles
+ * are never stored; they live in memory for the current check-in, if allowed.
+ */
+export type CalendarSummary = {
+  source: "sample" | "ics";
+  /** Timed meetings (all-day events are counted separately). */
+  count: number;
+  allDay: number;
+  /** Minutes in meetings, with overlapping meetings counted once. */
+  totalMinutes: number;
+  longestRunMinutes: number;
+  /** Minutes since midnight. */
+  longestRunStart: number | null;
+  longestRunEnd: number | null;
+  /** Busy stretches (overlapping meetings joined), in minutes since midnight, for the timeline. */
+  blocks: { start: number; end: number }[];
+  /** Free gaps of 15 minutes or more between meetings, in minutes since midnight. */
+  gaps: { start: number; end: number }[];
+  firstStart: number | null;
+  /** Minutes between the start of the working day and the first meeting. */
+  freeBeforeFirst: number;
+};
+
 /** Everything is optional: scores are recomputed after every single answer. */
 export type Answers = {
   profile?: Profile;
@@ -58,6 +88,11 @@ export type Answers = {
   weighing?: Weighing;
   screens?: Screens;
   tomorrow?: Tomorrow;
+  cycle?: CyclePhase;
+  flow?: Flow;
+  cramps?: Cramps;
+  noticing?: Noticing[];
+  calendar?: CalendarSummary;
 };
 
 export type ScoreKey = "energy" | "focus" | "mood" | "social" | "pressure";

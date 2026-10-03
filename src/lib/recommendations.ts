@@ -3,17 +3,25 @@
 // at most four, ordered safety and sleep, then food, movement, workload, comfort.
 // Calm, specific, no guilt, no medical claims.
 
+import { formatDuration, formatMinutes } from "./calendar";
 import type { ScoreResult } from "./forecast";
-import type { Mode } from "./report";
+import { dipCentre, type Mode } from "./report";
 import type { Answers, Profile } from "./types";
 
 export type Category = "safety" | "sleep" | "food" | "movement" | "workload" | "comfort";
 export type RecTime = "morning" | "midday" | "afternoon" | "evening" | "any";
 
+/** An event for this check-in only. Titles are held in memory and never saved. */
+export type EventNote = { title: string; start: number; end: number };
+
 export type RecContext = {
   a: Answers;
   r: ScoreResult;
   hour: number;
+  /** Minutes since midnight now; defaults to the start of `hour`. */
+  minutes?: number;
+  /** Today's events with titles, only when the person allowed titles. */
+  titles?: EventNote[];
   mode: Mode;
   good: boolean;
 };
@@ -28,6 +36,8 @@ export type Recommendation = {
   when?: string;
   /** Advice on the same topic is only shown once; the profile-specific version wins. */
   topic?: string;
+  /** Advice based on the person's own calendar or cycle answers wins over general advice in the same category. */
+  boost?: number;
   /** Only suggested on good days, as light advice. */
   light?: boolean;
   /** Dropped when the person reports pain beyond soreness. */
@@ -49,6 +59,24 @@ const LONG_SINCE_MEAL = ["4to6h", "6hplus"];
 const shortSleep = (a: Answers) => a.sleep !== undefined && SHORT_SLEEP.includes(a.sleep);
 const longSinceMeal = (a: Answers) => a.lastMeal !== undefined && LONG_SINCE_MEAL.includes(a.lastMeal);
 const emptyAfterTwo = (c: RecContext) => c.a.lastMeal === "nothingYet" && c.hour >= 14;
+const nowMinutes = (c: RecContext) => c.minutes ?? c.hour * 60;
+const range = (start: number, end: number) => `${formatMinutes(start)} to ${formatMinutes(end)}`;
+
+/** The next free gap (15 minutes or more) that is not already over. */
+const nextGap = (c: RecContext) => c.a.calendar?.gaps.find((g) => g.end > nowMinutes(c) + 5);
+
+/** Does the longest back-to-back run overlap the predicted dip (an hour before to three hours after)? */
+const runHitsDip = (c: RecContext) => {
+  const cal = c.a.calendar;
+  if (!cal || cal.longestRunStart === null || cal.longestRunEnd === null || c.r.crash < 40) return false;
+  const centre = dipCentre(c.r.crash) * 60;
+  return cal.longestRunStart < centre + 180 && cal.longestRunEnd > centre - 60;
+};
+
+const PREP = /interview|exam|viva|presentation|pitch|demo|deadline|review/i;
+const MEAL = /lunch|dinner|break/i;
+const upcoming = (c: RecContext, test: RegExp) => c.titles?.find((t) => t.start > nowMinutes(c) && test.test(t.title));
+
 const hardSession = (a: Answers) => a.training === "hard" || a.training === "brutal";
 
 /** Why food is on the list: how long ago, and what the last meal was. */
@@ -70,6 +98,13 @@ export const LIBRARY: Recommendation[] = [
     trigger: (c) => c.a.pain === "pain",
     text: () => "Rest today, or keep it to gentle mobility. If the pain lasts or gets worse, see a professional.",
     reason: () => "You mentioned pain beyond normal soreness after a hard session.",
+  },
+
+  {
+    id: "cycle-heat-rest", boost: 1, category: "safety", profile: "all", time: "any", when: "Today",
+    trigger: (c) => c.a.cramps === "strong",
+    text: () => "Many people find a heat pack and some rest help with strong cramps. Go gently today.",
+    reason: () => "You said your cramps or pain are strong.",
   },
 
   /* ---------- Sleep ---------- */
@@ -139,6 +174,23 @@ export const LIBRARY: Recommendation[] = [
 
   /* ---------- Food ---------- */
   {
+    id: "cal-eat-gap", boost: 1, topic: "eat", category: "food", profile: "all", time: "any",
+    trigger: (c) =>
+      Boolean(nextGap(c)) &&
+      (longSinceMeal(c.a) || emptyAfterTwo(c) || c.a.mealType === "coffee" || c.a.mealType === "skipped" || c.a.mealType === "carbs"),
+    text: (c) => `Eat in your gap from ${range(nextGap(c)!.start, nextGap(c)!.end)}: dal-roti, eggs, curd with fruit, or nuts.`,
+    reason: (c) => `${mealReason(c)} That is the next free gap in your calendar.`,
+  },
+  {
+    id: "cal-title-lunch", boost: 1, topic: "eat", category: "food", profile: "all", time: "any",
+    trigger: (c) => Boolean(upcoming(c, MEAL)) && (longSinceMeal(c.a) || c.a.lastMeal === "2to4h"),
+    text: (c) => {
+      const e = upcoming(c, MEAL)!;
+      return `You already have "${e.title}" at ${formatMinutes(e.start)}. Protect it, and eat something proper then.`;
+    },
+    reason: () => "You allowed event titles, so this tip can name the break you already have.",
+  },
+  {
     id: "food-eat-now", topic: "eat", category: "food", profile: "all", time: "any", when: "Within the hour",
     trigger: (c) => longSinceMeal(c.a) || emptyAfterTwo(c),
     text: () => "Eat something with protein within the hour: dal-roti, eggs, curd with fruit, or nuts.",
@@ -207,13 +259,24 @@ export const LIBRARY: Recommendation[] = [
 
   /* ---------- Movement ---------- */
   {
-    id: "move-between-meetings", category: "movement", profile: "desk", time: "afternoon", when: "Between meetings",
+    id: "cal-walk-gap", boost: 1, topic: "walk", category: "movement", profile: "all", time: "any",
+    trigger: (c) =>
+      Boolean(nextGap(c)) &&
+      ((c.a.calendar?.count ?? 0) >= 3 || c.a.movement === "2to3days" || c.a.movement === "cantRemember"),
+    text: (c) => `Walk 10 minutes in your gap from ${range(nextGap(c)!.start, nextGap(c)!.end)}.`,
+    reason: (c) =>
+      (c.a.calendar?.count ?? 0) >= 3
+        ? `${c.a.calendar!.count} meetings today is a lot of sitting, and this is your next free gap.`
+        : "It has been a couple of days since you moved, and this is your next free gap.",
+  },
+  {
+    id: "move-between-meetings", topic: "walk", category: "movement", profile: "desk", time: "afternoon", when: "Between meetings",
     trigger: (c) => c.a.meetings === "3to5" || c.a.meetings === "6plus",
     text: () => "Walk 10 minutes between meetings.",
     reason: () => "A day of meetings is a lot of sitting, and it drains your social battery.",
   },
   {
-    id: "move-walk", category: "movement", profile: "all", time: "afternoon", when: "Before 5 PM",
+    id: "move-walk", topic: "walk", category: "movement", profile: "all", time: "afternoon", when: "Before 5 PM",
     trigger: (c) => c.a.movement === "2to3days" || c.a.movement === "cantRemember",
     text: () => "Take a 10-minute walk before 5.",
     reason: () => "It's been a couple of days since you moved, and mood tends to follow movement.",
@@ -281,7 +344,52 @@ export const LIBRARY: Recommendation[] = [
 
   /* ---------- Workload ---------- */
   {
-    id: "work-hardest-first", category: "workload", profile: "desk", time: "morning", when: "Before 11 AM",
+    id: "cal-b2b-crash", boost: 1, topic: "b2b", category: "food", profile: "all", time: "any",
+    trigger: runHitsDip,
+    text: (c) =>
+      `Your back-to-back run from ${range(c.a.calendar!.longestRunStart!, c.a.calendar!.longestRunEnd!)} lands on your likely dip. Eat before it starts and ask for a 10-minute break in the middle.`,
+    reason: (c) =>
+      `Crash risk is ${c.r.crash}% around ${formatMinutes(dipCentre(c.r.crash) * 60)}, and that run is ${formatDuration(c.a.calendar!.longestRunMinutes)} with no break.`,
+  },
+  {
+    id: "cal-b2b-long", boost: 1, topic: "b2b", category: "workload", profile: "all", time: "any",
+    trigger: (c) => (c.a.calendar?.longestRunMinutes ?? 0) >= 120,
+    text: (c) =>
+      `You have ${formatDuration(c.a.calendar!.longestRunMinutes)} of back-to-back meetings from ${range(c.a.calendar!.longestRunStart!, c.a.calendar!.longestRunEnd!)}. Ask for five-minute buffers, or end the first one early.`,
+    reason: () => "Long unbroken runs wear down focus and social battery.",
+  },
+  {
+    id: "cal-free-morning", boost: 1, topic: "hardest", category: "workload", profile: "desk", time: "morning",
+    trigger: (c) => {
+      const cal = c.a.calendar;
+      return (
+        Boolean(cal) &&
+        cal!.firstStart !== null &&
+        cal!.freeBeforeFirst >= 45 &&
+        nowMinutes(c) < cal!.firstStart! - 20 &&
+        c.r.scores.focus >= 45
+      );
+    },
+    text: (c) => `You are free until ${formatMinutes(c.a.calendar!.firstStart!)}. Use that window for your hardest task.`,
+    reason: () => "A long free stretch before the first meeting is the best focus time you will get today.",
+  },
+  {
+    id: "cal-no-gaps", boost: 1, topic: "buffers", category: "workload", profile: "all", time: "any",
+    trigger: (c) => (c.a.calendar?.count ?? 0) >= 3 && c.a.calendar!.gaps.length === 0,
+    text: () => "There is no gap longer than 15 minutes today. Ask for five-minute buffers, and keep water and a snack within reach.",
+    reason: (c) => `Your calendar has ${c.a.calendar!.count} meetings with no real break between them.`,
+  },
+  {
+    id: "cal-title-prep", boost: 1, topic: "prep", category: "workload", profile: "all", time: "any",
+    trigger: (c) => Boolean(upcoming(c, PREP)),
+    text: (c) => {
+      const e = upcoming(c, PREP)!;
+      return `Before "${e.title}" at ${formatMinutes(e.start)}, take ten minutes to prep and have some water.`;
+    },
+    reason: () => "You allowed event titles, so this tip can name what is coming up.",
+  },
+  {
+    id: "work-hardest-first", topic: "hardest", category: "workload", profile: "desk", time: "morning", when: "Before 11 AM",
     trigger: (c) => c.hour < 11 && c.r.scores.focus >= 45,
     text: () => "Do your hardest task before 11. Block it now.",
     reason: (c) => (c.r.crash >= 40 ? "Your focus is best early and a dip is coming." : "Your focus is best early in the day."),
@@ -305,7 +413,7 @@ export const LIBRARY: Recommendation[] = [
     reason: () => "You have free gaps between a heavy run of meetings.",
   },
   {
-    id: "work-buffers", category: "workload", profile: "desk", time: "any", when: "Today",
+    id: "work-buffers", topic: "buffers", category: "workload", profile: "desk", time: "any", when: "Today",
     trigger: (c) => c.a.gaps === "no",
     text: () => "Ask for 5-minute buffers, or end calls five minutes early.",
     reason: () => "Your meetings run back to back with no gaps.",
@@ -351,6 +459,62 @@ export const LIBRARY: Recommendation[] = [
     trigger: (c) => c.mode === "day",
     text: () => "Put your most important work in the first half of the day.",
     reason: () => "Your conditions are good, so use them where it counts.",
+  },
+
+  /* ---------- Cycle (only when the person has chosen to factor it in) ---------- */
+  {
+    id: "cycle-iron", boost: 1, category: "food", profile: "all", time: "any", when: "With your meals",
+    trigger: (c) => c.a.flow === "heavy",
+    text: () => "Many people find iron-rich foods help during a heavy flow: dal, spinach, rajma, chana, jaggery or eggs.",
+    reason: () => "You said your flow is heavy.",
+  },
+  {
+    id: "cycle-cravings", boost: 1, category: "food", profile: "all", time: "any", when: "Through the day",
+    trigger: (c) => Boolean(c.a.noticing?.includes("cravings")),
+    text: () => "Many people find regular meals with some protein steady cravings. A little of what you fancy is fine too.",
+    reason: () => "You said you are noticing cravings.",
+  },
+  {
+    id: "cycle-sleep", boost: 1, category: "sleep", profile: "all", time: "evening", when: "Tonight",
+    trigger: (c) => Boolean(c.a.noticing?.includes("sleep")),
+    text: () => "Many people find a cooler room and a steady wind-down routine help when sleep is patchy around now.",
+    reason: () => "You said you are having trouble sleeping.",
+  },
+  {
+    id: "cycle-training", boost: 1, category: "movement", profile: "training", time: "any", when: "Today's session", training: true,
+    trigger: (c) => c.a.cycle === "period" || c.a.cycle === "pms",
+    text: () => "Go by how you feel: a lighter session or a gentle walk is a fine choice, and so is your usual one.",
+    reason: () => "Energy can look different around your period, and either choice is a good one.",
+  },
+  {
+    id: "cycle-study", boost: 1, category: "workload", profile: "study", time: "any", when: "Today",
+    trigger: (c) => c.a.cycle === "period" || c.a.cycle === "pms",
+    text: () => "Many people find regular meals and a firm stop time help. Keep today's plan realistic rather than smaller.",
+    reason: () => "A steady routine carries you through days when energy dips.",
+  },
+  {
+    id: "cycle-desk", boost: 1, category: "workload", profile: "desk", time: "any", when: "Today",
+    trigger: (c) => c.a.cycle === "period" || c.a.cycle === "pms",
+    text: () => "Keep water and a snack within reach, and put the tasks that need the most focus where you feel best.",
+    reason: () => "Small comforts make a full day easier to get through.",
+  },
+  {
+    id: "cycle-bloating", boost: 1, category: "comfort", profile: "all", time: "any", when: "Today",
+    trigger: (c) => Boolean(c.a.noticing?.includes("bloating")),
+    text: () => "Many people find warm drinks, loose clothes and a gentle walk ease bloating.",
+    reason: () => "You said you are noticing bloating.",
+  },
+  {
+    id: "cycle-mood", boost: 1, category: "comfort", profile: "all", time: "any", when: "Today",
+    trigger: (c) => Boolean(c.a.noticing?.includes("mood")),
+    text: () => "Mood dips around now are common for many people. Go easy on yourself, and let small things count.",
+    reason: () => "You said you are noticing mood dips.",
+  },
+  {
+    id: "cycle-lighter-day", boost: 1, category: "comfort", profile: "all", time: "any", when: "Today",
+    trigger: (c) => c.a.cycle === "period" && c.r.scores.energy < 50,
+    text: () => "A lighter day is a sensible plan, not a setback. Pick the one or two things that matter and let the rest wait.",
+    reason: () => "Your energy is lower today.",
   },
 
   /* ---------- Comfort ---------- */
@@ -412,6 +576,7 @@ export function pickRecommendations(c: RecContext): Picked[] {
     .sort(
       (x, y) =>
         order.indexOf(x.rec.category) - order.indexOf(y.rec.category) ||
+        (y.rec.boost ?? 0) - (x.rec.boost ?? 0) ||
         // Advice written for the person's profile beats general advice in the same category.
         Number(y.rec.profile !== "all") - Number(x.rec.profile !== "all") ||
         x.index - y.index,

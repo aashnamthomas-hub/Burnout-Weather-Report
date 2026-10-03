@@ -8,7 +8,7 @@ import { REPORT } from "@/lib/report";
 import { generateInsight } from "@/lib/insights";
 import { sampleWeek } from "@/lib/sample";
 import { BASELINE_SKY } from "@/lib/sky";
-import { clearCheckIns, writeStorage } from "@/lib/storage";
+import { clearAllData, hasCycleData, removeCycleData, writeStorage } from "@/lib/storage";
 import type { CheckIn } from "@/lib/types";
 import { WeekChart } from "./WeekChart";
 import { useSky } from "./SkyProvider";
@@ -194,7 +194,7 @@ export function WeekView() {
                     type="button"
                     className={textButton}
                     onClick={() => {
-                      clearCheckIns();
+                      clearAllData();
                       setMemorySample(null);
                       setConfirming(false);
                     }}
@@ -214,6 +214,14 @@ export function WeekView() {
           <p className="max-w-2xl text-base text-ink-soft text-pretty">
             Your check-ins are saved only in this browser. Clearing them can&apos;t be undone.
           </p>
+          {checkIns && hasCycleData(checkIns) && (
+            <p className="max-w-2xl text-base text-ink-soft text-pretty">
+              Cycle info stays in this browser.{" "}
+              <button type="button" className={textButton} onClick={() => removeCycleData()}>
+                Remove cycle data
+              </button>
+            </p>
+          )}
         </div>
       </div>
     </>

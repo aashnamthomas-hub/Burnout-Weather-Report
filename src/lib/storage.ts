@@ -7,9 +7,15 @@ import type { CheckIn } from "./types";
 
 export type ThemePreference = "day" | "night";
 
+/** Choices that change what the app asks. Everything here stays in this browser. */
+export type Settings = { cycle: boolean };
+
+export const DEFAULT_SETTINGS: Settings = { cycle: false };
+
 export type StorageSchema = {
   theme: ThemePreference;
   checkIns: CheckIn[];
+  settings: Settings;
 };
 
 export type StorageKey = keyof StorageSchema;
@@ -115,7 +121,37 @@ export function subscribeStorage(onChange: () => void): () => void {
   };
 }
 
-/** Everything the app has saved about check-ins. The theme preference is kept. */
-export function clearCheckIns(): boolean {
-  return removeStorage("checkIns");
+/** Every saved check-in, the cycle setting and anything else about you. Only the day/night choice is kept. */
+export function clearAllData(): boolean {
+  const checkIns = removeStorage("checkIns");
+  const settings = removeStorage("settings");
+  return checkIns && settings;
+}
+
+export function readSettings(): Settings {
+  const saved = readStorage("settings");
+  return { ...DEFAULT_SETTINGS, cycle: saved?.cycle === true };
+}
+
+/** The answers that belong to the cycle feature. */
+export const CYCLE_ANSWER_KEYS = ["cycle", "flow", "cramps", "noticing"] as const;
+
+/** Strips cycle answers from every saved check-in and switches the feature off. */
+export function removeCycleData(): boolean {
+  const saved = readStorage("checkIns");
+  let ok = writeStorage("settings", { ...readSettings(), cycle: false });
+  if (Array.isArray(saved)) {
+    const cleaned = saved.map((c) => {
+      const answers = { ...(c?.answers ?? {}) } as Record<string, unknown>;
+      for (const key of CYCLE_ANSWER_KEYS) delete answers[key];
+      return { ...c, answers } as CheckIn;
+    });
+    ok = writeStorage("checkIns", cleaned) && ok;
+  }
+  return ok;
+}
+
+/** True when any saved check-in has cycle answers. */
+export function hasCycleData(checkIns: CheckIn[]): boolean {
+  return checkIns.some((c) => CYCLE_ANSWER_KEYS.some((k) => (c?.answers as Record<string, unknown> | undefined)?.[k] !== undefined));
 }

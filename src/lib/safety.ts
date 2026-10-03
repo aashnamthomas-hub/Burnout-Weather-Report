@@ -32,3 +32,45 @@ export const SUPPORT_NOTE = {
   body: "The last few days have looked heavy. That's worth taking seriously, and you don't have to carry it alone. Consider talking to someone you trust, or a professional, about how you've been feeling.",
   urgent: "If you ever feel unsafe, please contact your local emergency services or a helpline in your area.",
 } as const;
+
+/* ---------- Cycle: when to gently suggest mentioning something to a doctor ---------- */
+
+export const CYCLE_SAFETY = {
+  /** Heavy flow on this many check-ins in a row. */
+  heavyInARow: 3,
+  /** Strong pain on at least this many of the last few check-ins. */
+  strongPainCount: 3,
+  strongPainWindow: 5,
+} as const;
+
+export const CYCLE_NOTES = {
+  strongPain: "Severe or worsening period pain is worth checking with a doctor.",
+  heavyFlow: "Heavy flow on three check-ins in a row is worth mentioning to a doctor, if you haven't already.",
+  repeatedPain: "Strong period pain has come up several times lately. Many people find it helps to mention that to a doctor.",
+} as const;
+
+/**
+ * Gentle notes about the cycle answers. Uses only what the person has answered:
+ * today's answers plus their earlier check-ins. Never predicts or diagnoses.
+ */
+export function cycleNotes(history: CheckIn[], today: { flow?: string; cramps?: string }): string[] {
+  const earlier = [...history]
+    .filter((c) => Number.isFinite(Date.parse(c?.date)))
+    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+    .map((c) => c.answers ?? {});
+  const series = [...earlier, today];
+
+  const notes: string[] = [];
+  if (today.cramps === "strong") notes.push(CYCLE_NOTES.strongPain);
+
+  const lastHeavy = series.slice(-CYCLE_SAFETY.heavyInARow);
+  if (lastHeavy.length === CYCLE_SAFETY.heavyInARow && lastHeavy.every((a) => a.flow === "heavy")) {
+    notes.push(CYCLE_NOTES.heavyFlow);
+  }
+
+  const recent = series.slice(-CYCLE_SAFETY.strongPainWindow);
+  if (today.cramps === "strong" && recent.filter((a) => a.cramps === "strong").length >= CYCLE_SAFETY.strongPainCount) {
+    notes.push(CYCLE_NOTES.repeatedPain);
+  }
+  return notes;
+}
